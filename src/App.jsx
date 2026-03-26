@@ -226,7 +226,7 @@ const PAYMENT_METHODS_WALLET = [
   { id: 'credit', name: 'Credit/Debit',  icon: <CreditCard size={26} />, desc: 'Visa / Mastercard' },
 ]
 
-const WalletView = ({ balance, onTopUp, onBack }) => {
+const WalletView = ({ balance, onRefreshBalance, onBack }) => {
   const QUICK_AMOUNTS = [100, 200, 500, 1000]
   const [step, setStep] = useState('home')      // home | selectAmount | selectMethod | qr | success
   const [selectedAmt, setSelectedAmt] = useState(500)
@@ -234,6 +234,10 @@ const WalletView = ({ balance, onTopUp, onBack }) => {
   const [method, setMethod] = useState('qr')
   const [timeLeft, setTimeLeft] = useState(900)
   const [processing, setProcessing] = useState(false)
+  const [chargeId, setChargeId] = useState(null)
+  const [qrUri, setQrUri] = useState(null)
+  const [isPolling, setIsPolling] = useState(false)
+  const [successBalance, setSuccessBalance] = useState(0)
 
   useEffect(() => {
     if (step !== 'qr') return
@@ -242,17 +246,89 @@ const WalletView = ({ balance, onTopUp, onBack }) => {
     return () => clearInterval(t)
   }, [step, timeLeft])
 
+  // Polling for top-up status - SEPARATE EFFECT
+  useEffect(() => {
+    if (step !== 'qr' || !chargeId) return
+
+    const pollId = setInterval(async () => {
+      try {
+        const res = await fetch(`api/index.php?action=check_topup_status&charge_id=${chargeId}&t=${Date.now()}`)
+        const data = await res.json()
+        console.log('Topup Poll Status:', data.status)
+        const status = (data.status || '').toString().trim()
+        const isPaid = ['Paid', 'Confirmed', 'Success', 'successful'].some(s => s.toLowerCase() === status.toLowerCase())
+        
+        if (isPaid) {
+          console.log('Payment confirmed! Transitioning...')
+          const newBal = await onRefreshBalance()
+          setSuccessBalance(newBal || (balance + finalAmt))
+          setStep('success')
+          clearInterval(pollId)
+        }
+      } catch (e) { console.error('Poll error:', e) }
+    }, 1500)
+
+    return () => clearInterval(pollId)
+  }, [step, chargeId])
+
   const formatTime = s => `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`
   const finalAmt = customAmt > 0 ? Number(customAmt) : selectedAmt
 
-  const handleConfirmTopUp = () => {
+  const handleConfirmTopUp = async () => {
+    if (!localStorage.getItem('court_user')) return alert('กรุณาเข้าสู่ระบบก่อนเติมเงิน')
+    const userObj = JSON.parse(localStorage.getItem('court_user'))
+    
     setProcessing(true)
-    setTimeout(() => { setProcessing(false); setStep('qr') }, 1200)
+    try {
+      const res = await fetch('api/omise_topup.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userObj.id,
+          amount: finalAmt,
+          type: method
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setChargeId(data.charge_id)
+        setQrUri(data.qr_code_uri)
+        if (method === 'credit' && data.authorize_uri) {
+           window.location.href = data.authorize_uri
+           return
+        }
+        setStep('qr')
+      } else {
+        alert('เกิดข้อผิดพลาด: ' + (data.error || 'โปรดลองอีกครั้ง'))
+      }
+    } catch (e) {
+      alert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้')
+    } finally {
+      setProcessing(false)
+    }
   }
 
-  const handlePaymentDone = () => {
-    onTopUp(finalAmt)
-    setStep('success')
+  const handlePaymentDone = async () => {
+    if (!chargeId) return
+    setProcessing(true)
+    try {
+      const res = await fetch(`api/index.php?action=check_topup_status&charge_id=${chargeId}&t=${Date.now()}`)
+      const data = await res.json()
+      const status = (data.status || '').toString().trim()
+      const isPaid = ['Paid', 'Confirmed', 'Success', 'successful'].some(s => s.toLowerCase() === status.toLowerCase())
+      
+      if (isPaid) {
+        const newBal = await onRefreshBalance()
+        setSuccessBalance(newBal || (balance + finalAmt))
+        setStep('success')
+      } else {
+        alert('ยังไม่พบยอดชำระเงิน กรุณารอสักครู่ หรือตรวจสอบยอดเงินในแอปธนาคารของท่าน')
+      }
+    } catch (e) {
+      alert('ไม่สามารถตรวจสอบสถานะได้ โปรดลองอีกครั้ง')
+    } finally {
+      setProcessing(false)
+    }
   }
 
   if (step === 'success') return (
@@ -265,7 +341,7 @@ const WalletView = ({ balance, onTopUp, onBack }) => {
         <p style={{ color: '#666' }}>ยอดเงิน wallet ของคุณเพิ่มขึ้น</p>
         <div style={{ background: '#f8fffe', borderRadius: '12px', padding: '20px', border: '1px solid #e0f2f1' }}>
           <div style={{ fontSize: '2rem', fontWeight: '800', color: '#00b894' }}>+฿{finalAmt.toLocaleString()}</div>
-          <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '4px' }}>ยอดคงเหลือใหม่: ฿{Math.floor(balance + finalAmt).toLocaleString('th-TH')}</div>
+          <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '4px' }}>ยอดคงเหลือใหม่: ฿{Math.floor(successBalance || balance).toLocaleString('th-TH')}</div>
         </div>
         <button className="premium-button" style={{ width: '100%', marginTop: '12px' }} onClick={onBack}>กลับหน้าหลัก</button>
       </div>
@@ -289,12 +365,20 @@ const WalletView = ({ balance, onTopUp, onBack }) => {
               <img src="https://upload.wikimedia.org/wikipedia/commons/c/c5/PromptPay_logo.svg" alt="PromptPay" style={{ height: '18px', filter: 'brightness(0) invert(1)' }} />
               <span style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>THAI QR PAYMENT</span>
             </div>
-            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=TOPUP_WALLET_${finalAmt}`} alt="QR" style={{ width: '250px', height: '250px', display: 'block' }} />
+            <img src={qrUri} alt="QR" style={{ width: '250px', height: '250px', display: 'block' }} />
           </div>
           <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1a1a3a', marginBottom: '8px' }}>฿{finalAmt.toLocaleString()}</div>
-          <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '32px' }}>สแกน QR เพื่อชำระ — เงินจะเข้า Wallet ทันที</p>
-          <button className="premium-button" style={{ width: '100%' }} onClick={handlePaymentDone}>
-            ฉันชำระเงินเรียบร้อยแล้ว
+          <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '20px' }}>สแกน QR เพื่อชำระ — เงินจะเข้า Wallet ทันที</p>
+          
+          <div style={{ marginBottom: '24px', padding: '12px', background: '#f0fff4', borderRadius: '8px', border: '1px solid #c6f6d5' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#48bb78', animation: 'pulse 1.5s infinite' }}></div>
+              <span style={{ fontSize: '0.85rem', fontWeight: '700', color: '#2f855a' }}>กำลังตรวจสอบยอดเงินอัตโนมัติ...</span>
+            </div>
+          </div>
+
+          <button className="premium-button" style={{ width: '100%', background: '#1a1a3a' }} onClick={handlePaymentDone} disabled={processing}>
+             {processing ? 'กำลังตรวจสอบ...' : 'ฉันชำระเงินเรียบร้อยแล้ว'}
           </button>
           <button onClick={() => setStep('home')} style={{ width: '100%', marginTop: '12px', background: 'none', border: 'none', color: '#666', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem' }}>
             ยกเลิก
@@ -437,7 +521,29 @@ function App() {
     })
   }
 
-  // Update wallet — tries API first, falls back to localStorage
+  // Fetch real balance from DB
+  const fetchUserBalance = async () => {
+    if (!user?.id) return 0
+    try {
+      const res = await fetch(`api/index.php?action=get_profile&user_id=${user.id}&t=${Date.now()}`)
+      const data = await res.json()
+      if (data && data.wallet_balance !== undefined) {
+        const val = Number(data.wallet_balance)
+        setWalletBalance(val)
+        localStorage.setItem('court_wallet', val)
+        // Also update the full user object to keep views in sync
+        setUser(prev => {
+          const next = { ...prev, ...data, wallet_balance: val }
+          localStorage.setItem('court_user', JSON.stringify(next))
+          return next
+        })
+        return val
+      }
+    } catch (e) { console.error('Fetch balance error:', e) }
+    return 0
+  }
+
+  // Update wallet — for manual deductions (e.g. booking)
   const updateWallet = async (updater) => {
     const currentBalance = walletBalance
     const amount = typeof updater === 'function' ? updater(currentBalance) - currentBalance : updater
@@ -450,7 +556,7 @@ function App() {
       })
       const data = await res.json()
       if (data.wallet_balance !== undefined) {
-        setWalletBalance(data.wallet_balance)
+        setWalletBalance(Number(data.wallet_balance))
         localStorage.setItem('court_wallet', data.wallet_balance)
         return
       }
@@ -563,7 +669,9 @@ function App() {
     if (user?.id) fetchUserHistory(user.id)
   }, [user?.id])
 
-  const fetchUserBalance = async (userId) => {
+  // This `fetchUserBalance` is a duplicate of the one above, but it also updates the user object.
+  // The one above is for general refresh, this one is for login/initial load.
+  const fetchUserBalanceOnLogin = async (userId) => {
     if (!userId) return
     try {
       const res = await fetch(`api/index.php?action=login_by_id&id=${userId}&t=${Date.now()}`)
@@ -586,12 +694,12 @@ function App() {
     console.log("System Date Debug (sv-SE):", new Date().toLocaleDateString('sv-SE'));
     fetchStatus()
     fetchCourts() // Fetch prices on mount
-    if (user?.id) fetchUserBalance(user.id)
+    if (user?.id) fetchUserBalanceOnLogin(user.id) // Use the one that updates user object
     const interval = setInterval(() => {
         fetchStatus()
         fetchCourts()
         if (user?.id) {
-          fetchUserBalance(user.id)
+          fetchUserBalanceOnLogin(user.id) // Use the one that updates user object
           fetchUserHistory(user.id)
         }
       }, 30000) // Poll every 30s
@@ -853,7 +961,7 @@ function App() {
       {view === 'wallet' && (
         <WalletView
           balance={walletBalance}
-          onTopUp={(amt) => updateWallet(amt)}
+          onRefreshBalance={fetchUserBalance}
           onBack={() => setView('profile')}
         />
       )}

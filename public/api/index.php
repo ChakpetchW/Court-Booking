@@ -50,8 +50,9 @@ switch($action) {
         echo json_encode($user ?: ["isRegistered" => false]);
         break;
 
+    case 'get_profile':
     case 'login_by_id':
-        $userId = isset($_GET['id']) ? $_GET['id'] : null;
+        $userId = isset($_GET['id']) ? $_GET['id'] : (isset($_GET['user_id']) ? $_GET['user_id'] : null);
         if (!$userId) { echo json_encode(["error" => "No ID"]); break; }
         $stmt = $conn->prepare("SELECT id, phone, name, surname, nickname, email, line_id, birthday, location, wallet_balance FROM users WHERE id = ?");
         $stmt->execute([$userId]);
@@ -442,6 +443,71 @@ switch($action) {
             $conn->rollBack();
             echo json_encode(["success" => false, "error" => $e->getMessage()]);
         }
+        break;
+
+    case 'check_topup_status':
+        $chargeId = $_GET['charge_id'] ?? null;
+        if (!$chargeId) {
+            echo json_encode(["status" => "error", "message" => "Missing charge_id"]);
+            break;
+        }
+
+        // 1. Check local DB first
+        $stmt = $conn->prepare("SELECT status, user_id, amount FROM wallet_transactions WHERE charge_id = ?");
+        $stmt->execute([$chargeId]);
+        $tx = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$tx) {
+            echo json_encode(["status" => "NotFound"]);
+            break;
+        }
+
+        if ($tx['status'] === 'Paid') {
+            echo json_encode(["status" => "Paid"]);
+            break;
+        }
+
+        // 2. If Pending, ask Omise directly for real-time speed
+        if ($tx['status'] === 'Pending') {
+            $ch = curl_init("https://api.omise.co/charges/" . $chargeId);
+            curl_setopt_array($ch, [
+                CURLOPT_USERPWD        => OMISE_SECRET_KEY . ':',
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => 5,
+                CURLOPT_SSL_VERIFYPEER => false,
+            ]);
+            $resp = curl_exec($ch);
+            curl_close($ch);
+
+            if ($resp) {
+                $omiseCharge = json_decode($resp, true);
+                if (isset($omiseCharge['status']) && $omiseCharge['status'] === 'successful') {
+                    // Start transaction to avoid double credit if webhook arrives at the same time
+                    $conn->beginTransaction();
+                    try {
+                        // Re-check status to be absolutely sure
+                        $stmt = $conn->prepare("SELECT status FROM wallet_transactions WHERE charge_id = ? FOR UPDATE");
+                        $stmt->execute([$chargeId]);
+                        $st = $stmt->fetchColumn();
+
+                        if ($st === 'Pending') {
+                            $stmt = $conn->prepare("UPDATE wallet_transactions SET status = 'Paid' WHERE charge_id = ?");
+                            $stmt->execute([$chargeId]);
+
+                            $stmt = $conn->prepare("UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?");
+                            $stmt->execute([$tx['amount'], $tx['user_id']]);
+                        }
+                        $conn->commit();
+                        echo json_encode(["status" => "Paid"]);
+                        break;
+                    } catch (Exception $e) {
+                        $conn->rollBack();
+                    }
+                }
+            }
+        }
+
+        echo json_encode(["status" => $tx['status']]);
         break;
 
     case 'admin_login':

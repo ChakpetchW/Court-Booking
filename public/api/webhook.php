@@ -67,6 +67,28 @@ if ($key === 'charge.complete' && ($data['status'] ?? '') === 'successful') {
         exit;
     }
 
+    if (($meta['type'] ?? '') === 'topup') {
+        $userId  = $meta['user_id'] ?? null;
+        $amount  = $data['amount'] / 100; // in THB
+        $txId    = $meta['transaction_id'] ?? null;
+
+        if ($userId) {
+            // Update Transaction
+            $conn->prepare("UPDATE wallet_transactions SET status='Paid' WHERE id=?")
+                 ->execute([$txId]);
+            
+            // Update User Balance
+            $conn->prepare("UPDATE users SET wallet_balance = wallet_balance + ? WHERE id=?")
+                 ->execute([$amount, $userId]);
+            
+            error_log('[Webhook] Top-up Successful: User #' . $userId . ' Amount: ' . $amount);
+        }
+        
+        http_response_code(200);
+        echo json_encode(['success' => true, 'type' => 'topup']);
+        exit;
+    }
+
     // ---- 3. Confirm Booking: pending → booked ----
     $stmt = $conn->prepare("SELECT b.*, u.name as customer_name, u.phone, c.name as court_name
                             FROM bookings b

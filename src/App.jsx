@@ -948,7 +948,7 @@ function App() {
 
   return (
     <div className="app-shell" style={{ background: view === 'login' || view === 'registration' ? 'var(--bg-dark)' : '#f4f7f6', color: '#333' }}>
-      <Header user={user?.isRegistered ? user : null} onViewChange={setView} />
+      <Header user={user} onViewChange={setView} />
       
       {view === 'login' && <Login onLoginSuccess={handleLoginSuccess} apiSettings={apiSettings} />}
       {view === 'registration' && <ProfileRegistration onComplete={handleRegistrationComplete} />}

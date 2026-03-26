@@ -32,8 +32,10 @@ function Booking({ user, courts, fetchStatus, onBack, onCheckout }) {
     for (let i = 0; i < 14; i++) {
         const date = new Date()
         date.setDate(date.getDate() + i)
+        // Use local date string instead of ISO to avoid UTC jump
+        const fullDate = date.toLocaleDateString('sv-SE')
         d.push({
-            full: date.toISOString().split('T')[0],
+            full: fullDate,
             day: date.toLocaleDateString('th-TH', { weekday: 'short' }),
             date: date.getDate(),
             month: date.toLocaleDateString('th-TH', { month: 'short' }),
@@ -270,12 +272,23 @@ function Booking({ user, courts, fetchStatus, onBack, onCheckout }) {
                     {TIME_SLOTS.map((time, idx) => {
                       const slot = selectedCourt?.allotment[idx]
                       const isUnavailable = slot && (!slot.isOpen || slot.bookedBy)
+                      
+                      // Check if time is in the past (for today)
+                      const isPast = (() => {
+                        const today = new Date().toLocaleDateString('sv-SE')
+                        if (selectedDate !== today) return false
+                        const [hours] = time.split(':').map(Number)
+                        const currentHour = new Date().getHours()
+                        return hours <= currentHour
+                      })()
+
+                      const isDisabled = isUnavailable || isPast
                       const isActive = selectedTime === time
                       
                       return (
                         <button 
                           key={time} 
-                          disabled={isUnavailable}
+                          disabled={isDisabled}
                           onClick={() => setSelectedTime(time)}
                           style={{ 
                             padding: '16px 8px',
@@ -285,12 +298,12 @@ function Booking({ user, courts, fetchStatus, onBack, onCheckout }) {
                             background: isActive ? 'var(--accent-primary)' : '#fff',
                             color: isActive ? '#fff' : '#333',
                             border: `2px solid ${isActive ? 'var(--accent-primary)' : '#eee'}`,
-                            opacity: isUnavailable ? 0.3 : 1,
-                            cursor: isUnavailable ? 'not-allowed' : 'pointer',
+                            opacity: isDisabled ? 0.3 : 1,
+                            cursor: isDisabled ? 'not-allowed' : 'pointer',
                             transition: 'all 0.2s',
                           }}
                         >
-                          {slot?.bookedBy ? 'เต็ม' : time}
+                          {slot?.bookedBy ? 'เต็ม' : (isPast && selectedDate === new Date().toLocaleDateString('sv-SE') ? 'เลยเวลา' : time)}
                         </button>
                       )
                     })}

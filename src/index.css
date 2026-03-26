@@ -1,30 +1,31 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kanit:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kanit:wght@300;400;500;600&family=Outfit:wght@400;600;700;800&display=swap');
 
 :root {
-  /* Color Palette - Premium Light/Green */
+  /* Color Palette - Elegant Tennis Theme */
   --bg-primary: #ffffff;
-  --bg-secondary: #f8f9fa;
-  --accent-primary: #00c853; /* Vibrant Green */
-  --accent-secondary: #4caf50; /* Standard Green */
-  --accent-court: #ebf7ed; /* Very light green for court map base */
+  --bg-secondary: #fbfbfb; /* Pearl White */
+  --accent-primary: #1b5e20; /* Emerald Green CI */
+  --accent-secondary: #d4ff00; /* Tennis Ball Yellow */
+  --accent-court: #f1f8e9;
   --text-primary: #1a1a1a;
   --text-secondary: #666666;
-  --glass-bg: rgba(255, 255, 255, 0.8);
-  --glass-border: rgba(0, 0, 0, 0.05);
-  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.08);
+  --glass-bg: rgba(255, 255, 255, 0.95);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-shadow: 0 10px 40px rgba(0, 0, 0, 0.05);
   
   /* Spacing & Borders */
   --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 20px;
-  --radius-xl: 30px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 40px;
   
   /* Fonts */
-  --font-en: 'Inter', sans-serif;
+  --font-heading: 'Outfit', sans-serif;
+  --font-body: 'Inter', sans-serif;
   --font-th: 'Kanit', sans-serif;
   
-  font-family: var(--font-th), var(--font-en);
-  line-height: 1.5;
+  font-family: var(--font-th), var(--font-body);
+  line-height: 1.6;
   font-weight: 400;
 
   color-scheme: light;
@@ -70,8 +71,10 @@ a:hover {
 }
 
 h1, h2, h3, h4 {
-  font-weight: 600;
-  line-height: 1.2;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
 }
 
 button {
@@ -90,6 +93,15 @@ input, select, textarea {
   border-radius: var(--radius-md);
   padding: 12px 16px;
   outline: none;
+  /* Fix 2: prevent iOS Safari auto-zoom on focus — must be >= 16px */
+  font-size: 16px;
+}
+
+@media (min-width: 768px) {
+  /* On larger screens, allow smaller font */
+  input, select, textarea {
+    font-size: 1rem;
+  }
 }
 
 input:focus {
@@ -117,23 +129,35 @@ input[type="checkbox"] {
 }
 
 .premium-button {
-  background: linear-gradient(135deg, var(--accent-primary), #388e3c);
+  background: var(--accent-primary);
   color: #fff;
-  font-weight: 600;
-  padding: 14px 28px;
-  border-radius: var(--radius-xl);
-  box-shadow: 0 4px 15px rgba(0, 200, 83, 0.2);
+  font-weight: 700;
+  padding: 18px 36px;
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(27, 94, 32, 0.15);
   text-align: center;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 1.1rem;
+  font-family: var(--font-heading);
+}
+
+.premium-button:hover:not(:disabled) {
+  background: #2e7d32;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(27, 94, 32, 0.2);
 }
 
 .premium-button:disabled {
-  opacity: 0.5;
+  opacity: 0.3;
   cursor: not-allowed;
+  filter: grayscale(1);
 }
 
 .premium-button:active:not(:disabled) {
-  transform: scale(0.96);
+  transform: scale(0.98);
 }
 
 .secondary-button {
@@ -459,4 +483,12 @@ input[type="checkbox"] {
 
 .calendar-day-btn.empty:hover {
   background: transparent;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
 }

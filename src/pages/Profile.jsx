@@ -1,80 +1,77 @@
 import React from 'react'
 import { Calendar, UserCheck } from 'lucide-react'
 
-const ProfileDashboard = ({ user, onStartBooking, onAdmin }) => {
+function ProfileDashboard({ user, walletBalance, onStartBooking, onAdmin }) {
   const infoItems = [
-    { label: 'Name', value: user?.name || '-' },
-    { label: 'Surname', value: user?.surname || 'Wiwatchatsukhon' },
-    { label: 'Nickname', value: user?.nickname || 'Aof' },
-    { label: 'Mobile Number', value: user?.phone || '-' },
-    { label: 'Line ID', value: user?.lineId || '-' },
-    { label: 'Email', value: user?.email || '-' },
-    { label: 'Date of Birth', value: user?.birthday || '-' },
-    { label: 'My Wallet', value: '0.00' },
-    { label: 'Location', value: 'Tennis Court' },
+    { label: 'ชื่อ-นามสกุล', value: user?.name || '-' },
+    { label: 'ชื่อเล่น', value: user?.nickname || '-' },
+    { label: 'เบอร์โทรศัพท์', value: user?.phone || '-' },
+    { label: 'Line ID', value: user?.line_id || '-' },
+    { label: 'อีเมล', value: user?.email || '-' },
+    { label: 'วันเกิด', value: user?.birthday || '-' },
+    { label: 'ยอดเงิน wallet', value: `฿${Math.floor(Number(walletBalance || 0)).toLocaleString('th-TH')}` },
+    { label: 'สถานที่', value: user?.location || 'Tennis Court' },
   ]
 
   return (
-    <div className="container-wide fade-in" style={{ padding: '20px' }}>
-      <div className="flex-col gap-lg">
+    <div className="container-wide fade-in" style={{ padding: '32px 20px' }}>
+      <div className="flex-col gap-xl">
         {/* Member Info Card */}
-        <div className="glass-card flex-col" style={{ background: '#fff', overflow: 'hidden', border: '1px solid #eee' }}>
-          <div style={{ padding: '12px 24px', background: 'var(--accent-court)', color: 'var(--accent-primary)', fontWeight: '600', borderBottom: '1px solid #eee' }}>
-             ข้อมูลสมาชิก
+        <div className="glass-card" style={{ padding: '0', overflow: 'hidden' }}>
+          <div style={{ padding: '24px 32px', background: 'var(--accent-primary)', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ fontSize: '1.5rem', fontFamily: 'var(--font-heading)', margin: 0 }}>ข้อมูลสมาชิก</h2>
           </div>
-          <div className="profile-info-grid" style={{ position: 'relative' }}>
-            {infoItems.map((item, idx) => (
-              <div key={idx} className="profile-info-item">
-                <span className="profile-info-label">{item.label}</span>
-                <span className="profile-info-value">{item.value}</span>
-              </div>
-            ))}
-            {/* Logo/Illustration Placeholder */}
-            <div style={{ position: 'absolute', right: '40px', bottom: '40px', opacity: 0.1 }}>
-               <UserCheck size={120} color="#000" />
+          
+          <div style={{ padding: '32px', position: 'relative' }}>
+            <div className="profile-info-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '32px' }}>
+              {infoItems.map((item, idx) => (
+                <div key={idx} className="profile-info-item" style={{ borderBottom: '1px solid #f0f0f0', paddingBottom: '12px' }}>
+                  <span className="profile-info-label" style={{ color: '#888', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px', display: 'block' }}>{item.label}</span>
+                  <span className="profile-info-value" style={{ fontSize: '1.2rem', fontWeight: '700', color: '#1a1a1a' }}>{item.value}</span>
+                </div>
+              ))}
+            </div>
+            
+            {/* Elegant Background Icon */}
+            <div style={{ position: 'absolute', right: '40px', bottom: '40px', opacity: 0.03, pointerEvents: 'none' }}>
+               <UserCheck size={200} color="var(--accent-primary)" />
             </div>
           </div>
         </div>
 
-        {/* Booking Options Section */}
-        <div className="glass-card flex-col" style={{ background: '#fff', overflow: 'hidden', border: '1px solid #eee' }}>
-          <div style={{ padding: '12px 24px', background: 'var(--accent-court)', color: 'var(--accent-primary)', fontWeight: '600', borderBottom: '1px solid #eee' }}>
-             จองสนาม / ลงเวลา
-          </div>
-            <div style={{ display: 'flex', gap: '20px', padding: '24px', background: '#f8f9fa' }}>
-            <div className="booking-option-card" onClick={onStartBooking}>
-               <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                 <Calendar size={24} color="#fff" />
+        {/* Quick Actions Section */}
+        <div className="flex-col gap-lg">
+           <h3 style={{ fontSize: '1.4rem', fontFamily: 'var(--font-heading)', color: '#1a1a1a', marginTop: '40px' }}>เมนูลัด</h3>
+           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+            {/* Primary Action */}
+            <div className="booking-option-card-premium" onClick={onStartBooking} style={{ 
+              background: '#fff', padding: '32px', borderRadius: 'var(--radius-lg)', cursor: 'pointer',
+              border: '1px solid #eee', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '24px',
+              transition: 'all 0.3s ease'
+            }}>
+               <div style={{ width: '64px', height: '64px', borderRadius: '20px', background: 'var(--accent-court)', color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                 <Calendar size={32} />
                </div>
-               <div style={{ textAlign: 'center' }}>
-                 <div style={{ fontWeight: '700', fontSize: '1rem' }}>จองสนาม</div>
-                 <div style={{ fontSize: '0.8rem', color: '#666' }}>(Court)</div>
+               <div>
+                 <div style={{ fontWeight: '800', fontSize: '1.2rem', color: '#1a1a3a' }}>จองสนาม</div>
+                 <div style={{ fontSize: '0.9rem', color: '#666' }}>ตรวจสอบสถานะว่างและจองได้ทันที</div>
                </div>
             </div>
             
-            <div className="booking-option-card" style={{ opacity: 0.6, cursor: 'not-allowed' }}>
-               <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                 <UserCheck size={24} color="#fff" />
+            {/* Secondary Action (Coming Soon) */}
+            <div style={{ 
+              background: '#fafafa', padding: '32px', borderRadius: 'var(--radius-lg)', opacity: 0.6,
+              border: '1px dashed #ddd', display: 'flex', alignItems: 'center', gap: '24px'
+            }}>
+               <div style={{ width: '64px', height: '64px', borderRadius: '20px', background: '#eee', color: '#aaa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                 <UserCheck size={32} />
                </div>
-               <div style={{ textAlign: 'center' }}>
-                 <div style={{ fontWeight: '700', fontSize: '1rem' }}>จองสนามพร้อม โค้ชหรือคู่ซ้อม</div>
-                 <div style={{ fontSize: '0.8rem', color: '#666' }}>(Stadium Coach and Hitting Partner)</div>
+               <div>
+                 <div style={{ fontWeight: '800', fontSize: '1.2rem', color: '#888' }}>หาผู้ช่วยสอน (เร็วๆ นี้)</div>
+                 <div style={{ fontSize: '0.9rem', color: '#999' }}>คอร์สสอนเทนนิสมืออาชีพ</div>
                </div>
             </div>
           </div>
-        </div>
-
-        {/* Demo Admin Access (For Testing) */}
-        <div style={{ textAlign: 'center', marginTop: '20px', opacity: 0.4 }}>
-           <button 
-             style={{ fontSize: '0.75rem', color: '#666', textDecoration: 'underline' }}
-             onClick={() => {
-                if (onAdmin) onAdmin();
-                window.location.hash = '#admin';
-             }}
-           >
-             Demo Admin Dashboard (Hourly Allotment)
-           </button>
         </div>
       </div>
     </div>

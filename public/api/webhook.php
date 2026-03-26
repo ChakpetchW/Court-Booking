@@ -11,12 +11,31 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/sms.php';
 
 $payload   = file_get_contents('php://input');
-$signature = $_SERVER['HTTP_OMISE_SIGNATURE'] ?? '';
+$signatureHeader = $_SERVER['HTTP_OMISE_SIGNATURE'] ?? '';
+$timestamp       = $_SERVER['HTTP_OMISE_SIGNATURE_TIMESTAMP'] ?? '';
 
-// ---- 1. Verify Signature ----
+// ---- 1. Verify Signature (Strict HMAC-SHA256) ----
 if (!empty(OMISE_WEBHOOK_SECRET)) {
-    $expected = hash_hmac('sha256', $payload, OMISE_WEBHOOK_SECRET);
-    if (!hash_equals($expected, $signature)) {
+    // omise_webhook_secret is a Base64-encoded HMAC secret key
+    $secret = base64_decode(OMISE_WEBHOOK_SECRET);
+    
+    // Payload for HMAC: <TIMESTAMP>.<RAW_BODY>
+    $signedPayload = $timestamp . '.' . $payload;
+    
+    // Compute expected signature (hexadecimal string)
+    $expected = hash_hmac('sha256', $signedPayload, $secret);
+    
+    // Handle potential comma-separated signatures during rotation
+    $signatures = explode(',', $signatureHeader);
+    $match = false;
+    foreach ($signatures as $sig) {
+        if (hash_equals($expected, trim($sig))) {
+            $match = true;
+            break;
+        }
+    }
+    
+    if (!$match) {
         http_response_code(403);
         echo json_encode(['error' => 'Invalid signature']);
         exit;
@@ -62,9 +81,14 @@ if ($key === 'charge.complete' && ($data['status'] ?? '') === 'successful') {
         $conn->prepare("UPDATE bookings SET status='Paid', transaction_ref=? WHERE id=?")
              ->execute([$chargeId, $bookingId]);
 
-        // Update allotment: pending_by → booked_by
-        $conn->prepare("UPDATE allotments SET booked_by=pending_by, pending_by=NULL WHERE court_id=? AND date=? AND hour=?")
-             ->execute([$courtId, $date, $hour]);
+        // Update Allotment: Ensure it's marked as booked by the real customer name
+        $customerName = $booking['customer_name'] ?? 'Paid';
+        $stmtAlloc = $conn->prepare("
+            INSERT INTO allotments (court_id, date, hour, is_open, booked_by, pending_by) 
+            VALUES (?, ?, ?, 0, ?, NULL)
+            ON DUPLICATE KEY UPDATE is_open = 0, booked_by = VALUES(booked_by), pending_by = NULL
+        ");
+        $stmtAlloc->execute([$courtId, $date, $hour, $customerName]);
 
         // ---- 4. Send SMS ----
         $smsData = [

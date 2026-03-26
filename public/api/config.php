@@ -3,6 +3,10 @@
  * Config — edit these values in DirectAdmin / your environment
  * DO NOT commit real credentials to Git
  */
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 
 // ---- Database ----
 define('DB_HOST', 'localhost');
@@ -12,9 +16,9 @@ define('DB_PASS', 'ZmcpPgKGccdxtefU5MtD');
 
 // ---- Omise ----
 // Get keys from: https://dashboard.omise.co/settings/keys
-define('OMISE_PUBLIC_KEY',      'pkey_test_YOUR_PUBLIC_KEY_HERE');
-define('OMISE_SECRET_KEY',      'skey_test_YOUR_SECRET_KEY_HERE');
-define('OMISE_WEBHOOK_SECRET',  'whsec_YOUR_WEBHOOK_SECRET_HERE');
+define('OMISE_PUBLIC_KEY',      'pkey_test_6756z7gvq2rmken4hpu');
+define('OMISE_SECRET_KEY',      'skey_test_6756z7hfdu17gxgmyge');
+define('OMISE_WEBHOOK_SECRET',  '+CqlcRC29VdqcsvwQyTWSs6jYY7POzaXTWv6X0yYvLs==');
 
 // ---- Thaibulksms ----  
 // Get from: https://app.thaibulksms.com/setting/key
